@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WallAI — Discover Wallpapers</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#"><span class="logo-dot"></span>WallAI</a>
+  <div class="search-wrap">
+    <svg class="s-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Search wallpapers, topics, hashtags…"/>
+  </div>
+  <div class="nav-right" id="navRight">
+    <button class="btn btn-ghost btn-sm" onclick="openModal('login')">Sign in</button>
+    <button class="btn btn-accent btn-sm" onclick="openModal('signup')">Join free</button>
+  </div>
+</nav>
+
+<!-- CATEGORIES -->
+<div class="cats" id="cats">
+  <div class="chip active" data-topic="">All</div>
+  <div class="chip" data-topic="nature">Nature</div>
+  <div class="chip" data-topic="home decor">Home Decor</div>
+  <div class="chip" data-topic="birds">Birds</div>
+  <div class="chip" data-topic="animal">Animal</div>
+  <div class="chip" data-topic="city">City</div>
+  <div class="chip" data-topic="car">Car</div>
+</div>
+
+<!-- GRID -->
+<main id="grid"></main>
+
+<!-- UPLOAD MODAL -->
+<div class="modal-bg" id="uploadModal" onclick="bgClose(event)">
+  <div class="modal">
+    <button class="m-close" onclick="document.getElementById('uploadModal').classList.remove('open')">×</button>
+    <div class="m-head">Upload wallpaper</div>
+    <div class="m-sub">Pick an image → BE generates ID → uploads to S3</div>
+    <div class="m-body">
+
+      <!-- Drop zone / file picker -->
+      <div id="uploadPreview"
+        onclick="document.getElementById('upFileInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor=''"
+        ondrop="event.preventDefault();this.style.borderColor='';Upload.onFilePicked({files:event.dataTransfer.files})"
+        style="width:100%;height:150px;border-radius:10px;
+               background:var(--surface2);border:2px dashed var(--border);
+               display:flex;align-items:center;justify-content:center;
+               color:var(--muted);font-size:13px;margin-bottom:10px;
+               overflow:hidden;cursor:pointer;transition:border-color .2s">
+        <img id="uploadPreviewImg" src="" alt=""
+             style="width:100%;height:100%;object-fit:cover;display:none;pointer-events:none"/>
+        <div id="uploadPreviewText" style="text-align:center;pointer-events:none">
+          <div style="font-size:30px;margin-bottom:6px;color:var(--accent)">+</div>
+          <div style="font-weight:500;color:var(--text)">Click or drag image here</div>
+          <div style="font-size:11px;margin-top:4px">JPG · PNG · WEBP — max 5MB</div>
+        </div>
+      </div>
+
+      <!-- File info row (shown after picking) -->
+      <div id="upFileInfo" style="display:none;font-size:11px;color:var(--accent);
+           margin-bottom:14px;padding:6px 10px;background:rgba(200,241,53,.08);
+           border-radius:6px;border:1px solid rgba(200,241,53,.15)"></div>
+
+      <!-- Hidden file input -->
+      <input type="file" id="upFileInput" accept="image/*"
+             style="display:none" onchange="Upload.onFilePicked(this)"/>
+
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="upName" placeholder="e.g. Red Macaw"/>
+      </div>
+      <div class="field">
+        <label>Topic</label>
+        <input type="text" id="upTopic" placeholder="e.g. bird, nature, dark"/>
+      </div>
+      <div class="field">
+        <label>Hashtags
+          <span style="color:var(--muted);font-weight:400;text-transform:none"> — comma separated</span>
+        </label>
+        <input type="text" id="upHashtags" placeholder="e.g. colorful, tropical, parrot"/>
+      </div>
+
+      <!-- Progress bar (shown during upload) -->
+      <div id="upProgressBar" style="display:none;margin-top:4px;
+           height:4px;background:var(--surface2);border-radius:4px;overflow:hidden">
+        <div id="upProgress" style="height:100%;width:0%;
+             background:var(--accent);border-radius:4px;transition:width .1s"></div>
+      </div>
+
+      <div class="err" id="upErr"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-accent" id="upBtn" onclick="Upload.submit()">Upload to S3</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-bg" id="authModal" onclick="bgClose(event)">
+  <div class="modal">
+    <button class="m-close" onclick="closeModal()">×</button>
+
+    <!-- LOGIN -->
+    <div id="loginPanel">
+      <div class="m-head">Welcome back</div>
+      <div class="m-sub">Sign in to download &amp; get AI recommendations</div>
+      <div class="m-body">
+        <div class="field"><label>Email</label>
+          <input type="email" id="liEmail" placeholder="you@email.com"/></div>
+        <div class="field"><label>Password</label>
+          <input type="password" id="liPass" placeholder="••••••••"
+                 onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div class="err" id="liErr"></div>
+      </div>
+      <div class="m-foot">
+        <button class="btn btn-accent" id="liBtn" onclick="doLogin()">Sign in</button>
+        <div class="m-switch">No account? <span onclick="switchPanel('signup')">Join free →</span></div>
+      </div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signupPanel" style="display:none">
+      <div class="m-head">Join WallAI</div>
+      <div class="m-sub">Free forever — discover &amp; download beautiful wallpapers</div>
+      <div class="m-body">
+        <div class="field"><label>Name</label>
+          <input type="text" id="suName" placeholder="Your full name"/></div>
+        <div class="field"><label>Email</label>
+          <input type="email" id="suEmail" placeholder="you@email.com"/></div>
+        <div class="field"><label>Password</label>
+          <input type="password" id="suPass" placeholder="min 8 characters"
+                 onkeydown="if(event.key==='Enter')doSignup()"/></div>
+        <div class="err" id="suErr"></div>
+      </div>
+      <div class="m-foot">
+        <button class="btn btn-accent" id="suBtn" onclick="doSignup()">Create account</button>
+        <div class="m-switch">Already have one? <span onclick="switchPanel('login')">Sign in →</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-bg" id="detailModal" onclick="bgClose(event)">
+  <div class="modal detail-modal">
+    <button class="m-close" onclick="document.getElementById('detailModal').classList.remove('open')">×</button>
+    <img id="detailImg" class="detail-img" src="" alt=""/>
+    <div class="detail-body">
+      <div class="detail-title" id="detailTitle"></div>
+      <div class="detail-meta"  id="detailMeta"></div>
+      <div class="detail-hashtags" id="detailHashtags"></div>
+      <div class="detail-actions">
+        <button class="btn btn-accent" id="detailDlBtn">Download</button>
+        <button class="btn btn-ghost"
+          onclick="document.getElementById('detailModal').classList.remove('open')">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- DOWNLOADS MODAL -->
+<div class="modal-bg" id="downloadsModal" onclick="bgClose(event)">
+  <div class="modal" style="max-width:560px">
+    <button class="m-close"
+      onclick="document.getElementById('downloadsModal').classList.remove('open')">×</button>
+    <div class="m-head">My downloads</div>
+    <div class="m-sub">Your downloaded wallpapers — click to re-download</div>
+    <div class="m-body" id="downloadsBody" style="max-height:460px;overflow-y:auto">
+      <div style="text-align:center;padding:40px;color:var(--muted)">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/images.js"></script>
+<script src="js/downloads.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/upload.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
