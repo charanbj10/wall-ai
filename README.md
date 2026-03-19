@@ -16,7 +16,6 @@
 - [API Endpoints](#api-endpoints)
 - [Infrastructure Setup](#infrastructure-setup)
 - [AWS Deployment](#aws-deployment)
-- [Screenshots](#screenshots)
 
 ---
 
